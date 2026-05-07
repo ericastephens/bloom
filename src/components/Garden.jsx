@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppState, useAppDispatch } from "../hooks/useAppState";
+import { getProfile, getCelebrationsShown, markCelebrationShown } from "../lib/profile";
+import { getDayOf1000, getGestationalWeeks, getStageLabel as getGestationalStageLabel } from "../lib/gestationalAge";
+import ReminderBanner from "./ReminderBanner";
+import MilestoneCelebration from "./MilestoneCelebration";
 
 // ── Continuous growth factors (0.0 → 4.0) ────────────────────────────────────
 // Baby grows the entire journey — conception through toddlerhood
@@ -193,12 +197,41 @@ const QUICK_LINKS = [
   {label:"Milestones", emoji:"⭐", path:"/milestones", color:"mama"},
 ];
 
+function checkPendingCelebration(profile, day) {
+  const shown = getCelebrationsShown();
+  const weeks = getGestationalWeeks(profile.confirmedPregnancyDate);
+  if (weeks !== null) {
+    if (weeks >= 13 && !shown.includes('t2')) return 't2';
+    if (weeks >= 27 && !shown.includes('t3')) return 't3';
+  }
+  if (day >= 270 && !shown.includes('birth')) return 'birth';
+  if (day >= 999 && !shown.includes('day1000')) return 'day1000';
+  return null;
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function Garden() {
   const { currentDay, baby, mama, floraUnread } = useAppState();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [toast, setToast] = useState("");
+
+  const profile = useMemo(() => getProfile(), []);
+  const displayDay = useMemo(
+    () => profile.confirmedPregnancyDate
+      ? (getDayOf1000(profile.confirmedPregnancyDate) ?? currentDay)
+      : currentDay,
+    [profile, currentDay],
+  );
+  const gestationalLabel = useMemo(
+    () => getGestationalStageLabel(profile.confirmedPregnancyDate, profile.birthDate),
+    [profile],
+  );
+  const motherName = profile.motherName || mama.name || "Mama";
+  const babyName   = profile.babyName   || baby.name;
+  const [pendingCelebration, setPendingCelebration] = useState(() =>
+    checkPendingCelebration(profile, displayDay)
+  );
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2200); };
 
@@ -212,22 +245,31 @@ export default function Garden() {
   const stagePct     = Math.round(((currentDay - stageStyle.start) / (stageStyle.end - stageStyle.start)) * 100);
   const daysLeftStage = stageStyle.end - currentDay;
 
-  const displayName  = mama.name || "Mama";
   const todayMood    = mama.moodLog.find((l) => l.day === currentDay);
   const lastSleep    = mama.sleepLog.at(-1);
   const todayNutr    = mama.nutritionLog.find((l) => l.day === currentDay);
   const ironPct      = todayNutr ? Math.round((todayNutr.iron / 27) * 100) : null;
   const milestonePct = baby.milestones.length;
 
-  const moment     = getTodayMoment(currentDay, baby.name);
-  const status     = getStatusLine(currentDay, baby.name);
-  const timeGreet  = getTimeGreeting();
+  const moment    = getTodayMoment(currentDay, babyName);
+  const status    = getStatusLine(currentDay, babyName);
+  const timeGreet = getTimeGreeting();
 
-  const initials = displayName
+  const initials = motherName
     .split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="px-4 pt-4 pb-2">
+
+      {pendingCelebration && (
+        <MilestoneCelebration
+          celebrationId={pendingCelebration}
+          onDismiss={() => {
+            markCelebrationShown(pendingCelebration);
+            setPendingCelebration(null);
+          }}
+        />
+      )}
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-3">
@@ -237,7 +279,7 @@ export default function Garden() {
           </div>
           <div>
             <p className="text-xs text-gray-400 leading-none">{timeGreet}</p>
-            <h1 className="text-xl font-bold text-gray-800 leading-tight">{displayName}</h1>
+            <h1 className="text-xl font-bold text-gray-800 leading-tight" style={{ fontFamily: 'Lora, Georgia, serif' }}>{motherName}'s Garden</h1>
           </div>
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -246,7 +288,7 @@ export default function Garden() {
           )}
           <div className="flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-semibold"
             style={{background: stageStyle.bg, color: stageStyle.text, borderColor: stageStyle.border}}>
-            {stageStyle.emoji} {stageStyle.label}
+            {stageStyle.emoji} {gestationalLabel || stageStyle.label}
           </div>
         </div>
       </div>
@@ -382,10 +424,10 @@ export default function Garden() {
       <div className="flex justify-between px-4 mb-3">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-[#7F77DD]"/>
-          <span className="text-xs font-semibold text-[#534AB7]">{displayName}</span>
+          <span className="text-xs font-semibold text-[#534AB7]" style={{ fontFamily: 'Lora, Georgia, serif' }}>{motherName}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-[#0F6E56]">{baby.name}</span>
+          <span className="text-xs font-semibold text-[#0F6E56]" style={{ fontFamily: 'Lora, Georgia, serif' }}>{babyName || "Your baby 🌱"}</span>
           <div className="w-2 h-2 rounded-full bg-[#1D9E75]"/>
         </div>
       </div>
@@ -420,6 +462,8 @@ export default function Garden() {
         ))}
       </div>
 
+      <ReminderBanner />
+
       {/* ── Quick nav ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         {QUICK_LINKS.map(({label,emoji,path,color}) => (
@@ -453,7 +497,7 @@ export default function Garden() {
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm px-4 py-3 mb-3 flex items-center gap-3">
           <span className="text-xl">⭐</span>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-gray-700 truncate">{baby.name} has hit {milestonePct} milestone{milestonePct !== 1 ? "s" : ""}</p>
+            <p className="text-xs font-semibold text-gray-700 truncate">{babyName || "Your baby"} has hit {milestonePct} milestone{milestonePct !== 1 ? "s" : ""}</p>
             <p className="text-[10px] text-gray-400">Keep tracking the journey</p>
           </div>
           <button onClick={() => navigate("/milestones")} className="text-xs text-[#1D9E75] font-semibold flex-shrink-0">

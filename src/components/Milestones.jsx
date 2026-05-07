@@ -2,6 +2,8 @@ import { useState } from "react";
 import { CheckCircle, AlertCircle, Circle } from "lucide-react";
 import { useAppState, useAppDispatch } from "../hooks/useAppState";
 import { milestones } from "../data/milestoneData";
+import { getCelebrationsShown, markCelebrationShown } from "../lib/profile";
+import MilestoneCelebration from "./MilestoneCelebration";
 
 const CATEGORIES = ["All", "Motor", "Social", "Language", "Vision"];
 
@@ -10,7 +12,17 @@ export default function Milestones() {
   const dispatch = useAppDispatch();
   const [activeCategory, setActiveCategory] = useState("All");
 
+  const [pendingCelebration, setPendingCelebration] = useState(null);
+
   const babyWeek = Math.max(0, Math.floor((currentDay - baby.birthDay) / 7));
+
+  const handleComplete = (milestoneId) => {
+    const isFirst = baby.milestones.length === 0;
+    dispatch({ type: "COMPLETE_MILESTONE", id: milestoneId });
+    if (isFirst && !getCelebrationsShown().includes('first-milestone')) {
+      setPendingCelebration('first-milestone');
+    }
+  };
 
   const filtered = milestones.filter(
     (m) => activeCategory === "All" || m.category.toLowerCase() === activeCategory.toLowerCase()
@@ -21,6 +33,15 @@ export default function Milestones() {
 
   return (
     <div className="p-5">
+      {pendingCelebration && (
+        <MilestoneCelebration
+          celebrationId={pendingCelebration}
+          onDismiss={() => {
+            markCelebrationShown(pendingCelebration);
+            setPendingCelebration(null);
+          }}
+        />
+      )}
       <h2 className="text-lg font-semibold text-gray-800 mb-4">Milestones</h2>
 
       {/* Progress */}
@@ -75,7 +96,7 @@ export default function Milestones() {
                 </div>
               </div>
               {!isDone && (
-                <button onClick={()=>dispatch({type:"COMPLETE_MILESTONE",id:milestone.id})}
+                <button onClick={() => handleComplete(milestone.id)}
                   className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors ${
                     isOverdue
                       ? "border-amber-400 text-amber-700 hover:bg-amber-100"

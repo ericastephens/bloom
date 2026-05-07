@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Send } from "lucide-react";
 import { useAppState, useAppDispatch, STAGE_LABEL } from "../hooks/useAppState";
+import { FLORA_BASE_PROMPT, buildFloraContextAddition } from "../data/floraSystemPrompt";
 
 let AnthropicClient = null;
 try {
@@ -14,24 +15,82 @@ try {
 } catch {}
 
 const QUICK_REPLIES = [
+  "What should I eat this trimester?",
+  "Foods from my culture that help with iron?",
+  "I have nausea — what can I eat?",
+  "Is my baby getting enough nutrients?",
+  "Foods that support breastfeeding?",
   "I'm exhausted and don't know if it's normal",
-  "My baby isn't eating well",
-  "I think I might have postpartum depression",
-  "What vitamins should I be taking?",
   "I have a bad headache that won't go away",
 ];
 
 const STATIC_RESPONSES = {
+  "What should I eat this trimester?":
+    "In the first trimester, folate is your best friend — it supports your baby's neural tube development. Think leafy greens, lentils, black beans, and fortified foods. If nausea is making things hard, go for small, bland meals: toast, rice, ginger tea, or congee. In the second trimester, iron and calcium become more important as your blood volume expands. By the third, add more protein and vitamin D. What trimester are you in? I can give you more specific suggestions.",
+  "Foods from my culture that help with iron?":
+    "So many traditional foods are iron powerhouses! A few examples: collard greens and black-eyed peas (Southern/West African), lentil dal (South Asian), callaloo (Caribbean), mchicha/amaranth greens (East African), black beans (Latin American), and egusi seeds (West African). The key with plant-based iron is pairing it with vitamin C — like a squeeze of lemon or tomato — to boost absorption. What cultural background do you cook from? I'd love to get more specific.",
+  "I have nausea — what can I eat?":
+    "First trimester nausea is so hard — you need to eat but everything sounds terrible. A few things that tend to help: cold foods (nausea is often triggered by smell, and cold foods have less aroma), small frequent meals instead of big ones, plain starchy foods like toast, crackers, rice, or plain congee, and ginger in any form — tea, candied ginger, or ginger ale. Sour flavors like lemon can also help settle the stomach. What time of day is your nausea worst?",
+  "Is my baby getting enough nutrients?":
+    "During pregnancy, your baby takes what it needs from you first — which is why your own nutrition matters so much. The nutrients to watch most are folate (neural tube, especially in T1), iron (blood volume and oxygen delivery), calcium and vitamin D (bone development), and DHA omega-3 (brain and eye development). Are you taking a prenatal vitamin? That's the best safety net. Is there a specific nutrient you're worried about? I can point you to the best food sources.",
+  "Foods that support breastfeeding?":
+    "Breast milk quality is remarkably stable even when your diet isn't perfect — your body prioritizes your baby. But to protect your own stores, focus on: omega-3 rich foods (fatty fish, walnuts, flaxseed) for milk DHA, iron-rich foods to replenish what you lost at birth, and stay well hydrated (aim for 13 cups of fluids daily). Some mothers find galactagogues — foods like oats, fenugreek, brewer's yeast, and moringa — help with supply, though the evidence is mixed. Are you also taking a postnatal vitamin?",
   "I'm exhausted and don't know if it's normal":
     "Yes — this kind of exhaustion is extremely common, especially in the first year. Interrupted sleep compounds over time in ways that hit harder than any single all-nighter. That said, exhaustion that feels crushing or doesn't improve with rest can be a sign of anemia or thyroid issues, both common postpartum. When did you last have bloodwork done? If it's been more than 6 weeks since delivery, it's worth asking your provider for a postpartum panel.",
-  "My baby isn't eating well":
-    "That's one of the most stressful things to watch. Can you tell me a bit more — is this about refusing breast or bottle, or about solids? How old is your baby? Feeding issues look really different at 6 weeks vs 6 months. In the meantime: wet diapers are the best indicator that enough is getting in. If you're seeing fewer than 6 wet diapers a day, call your pediatrician today.",
-  "I think I might have postpartum depression":
-    "I'm really glad you said that out loud — that takes courage. What you're feeling is real, it's common (1 in 5 mothers), and it's treatable. PPD doesn't mean you're a bad mother. It means your brain chemistry shifted after birth and needs support. The Edinburgh check-in in Mama's Health can give you a starting score to share with your provider. Would you like to take it now? And if you ever feel like harming yourself, please text or call 988 — they're available 24/7.",
-  "What vitamins should I be taking?":
-    "Great question — and the answer depends on where you are in your journey. If you're pregnant: iron (27mg), folate (600mcg, ideally as methylfolate), Vitamin D (1000–2000 IU), and DHA omega-3. If you're postpartum and breastfeeding: keep everything up, bump calories by ~300, add a good prenatal or postnatal multi. The Vitamins tab has specific brands with Amazon links if you want to compare options. What stage are you in?",
   "I have a bad headache that won't go away":
     "A persistent headache after delivery — especially if it's severe, or comes with vision changes, swelling, or upper abdominal pain — is something I take seriously. Those can be signs of postpartum preeclampsia, which can develop up to 6 weeks after birth. If any of those symptoms are present alongside your headache, please contact your provider or go to the ER today. If it's more of a tension headache, check your water intake and sleep first. How long has it been going on?",
+  "i have anxiety and a killer headache":
+    "I'm so sorry you're dealing with both anxiety and a severe headache — that sounds really tough. Anxiety is incredibly common during pregnancy and postpartum, and when it comes with a bad headache, it's important to rule out any medical causes. A severe headache could be related to preeclampsia, especially if accompanied by vision changes, swelling, or abdominal pain. Please reach out to your healthcare provider today to discuss both symptoms. In the meantime, try some gentle anxiety-reducing practices like deep breathing or a short walk. Have you been able to talk to anyone about how you're feeling?",
+  "im anxious":
+    "Anxiety during pregnancy and postpartum is so common — you're not alone in this. Many mothers experience it due to hormonal changes, sleep disruption, and the big life changes happening. If it's interfering with your daily life or feels overwhelming, talking to your provider about it is a great step. They can help determine if it's something that might benefit from additional support. What kinds of things tend to trigger your anxiety right now?",
+  "i have anxiety":
+    "Anxiety during pregnancy and postpartum is so common — you're not alone in this. Many mothers experience it due to hormonal changes, sleep disruption, and the big life changes happening. If it's interfering with your daily life or feels overwhelming, talking to your provider about it is a great step. They can help determine if it's something that might benefit from additional support. What kinds of things tend to trigger your anxiety right now?",
+  "im sick":
+    "I'm sorry you're not feeling well. During pregnancy and postpartum, feeling sick can come from many things — from hormones and tiredness to a simple cold or stomach upset. If your symptoms feel severe, sudden, or include fever, nausea, dizziness, or pain, please contact your provider. In the meantime, rest, stay hydrated, and reach out to someone you trust if you need support. What symptoms are you noticing right now?",
+  "i am sick":
+    "I'm sorry you're not feeling well. During pregnancy and postpartum, feeling sick can come from many things — from hormones and tiredness to a simple cold or stomach upset. If your symptoms feel severe, sudden, or include fever, nausea, dizziness, or pain, please contact your provider. In the meantime, rest, stay hydrated, and reach out to someone you trust if you need support. What symptoms are you noticing right now?",
+  "killer headache":
+    "A severe headache, especially during pregnancy or postpartum, needs to be taken seriously. It could be related to preeclampsia, dehydration, or other factors. Please contact your healthcare provider or go to urgent care if it's accompanied by vision changes, swelling, nausea, or confusion. In the meantime, rest in a dark room and stay hydrated. How long has this been going on and what does it feel like?",
+};
+
+const findStaticResponse = (input) => {
+  const normalizedInput = input.toLowerCase().trim();
+  
+  // Exact match first using normalized keys
+  const exactKey = Object.keys(STATIC_RESPONSES).find(
+    (key) => key.toLowerCase() === normalizedInput
+  );
+  if (exactKey) return STATIC_RESPONSES[exactKey];
+  
+  // Check for partial or synonym matches
+  for (const [key, response] of Object.entries(STATIC_RESPONSES)) {
+    const normalizedKey = key.toLowerCase();
+    if (
+      normalizedInput.includes(normalizedKey) ||
+      normalizedKey.includes(normalizedInput)
+    ) {
+      return response;
+    }
+  }
+  
+  // Keyword matching for symptoms
+  const keywords = {
+    anxious: STATIC_RESPONSES["im anxious"] || STATIC_RESPONSES["i have anxiety"],
+    anxiety: STATIC_RESPONSES["im anxious"] || STATIC_RESPONSES["i have anxiety"],
+    sick: STATIC_RESPONSES["im sick"],
+    headache: STATIC_RESPONSES["killer headache"],
+    "bad headache": STATIC_RESPONSES["I have a bad headache that won't go away"],
+    nausea: STATIC_RESPONSES["I have nausea — what can I eat?"],
+    exhausted: STATIC_RESPONSES["I'm exhausted and don't know if it's normal"],
+  };
+  
+  for (const [keyword, response] of Object.entries(keywords)) {
+    if (response && normalizedInput.includes(keyword)) {
+      return response;
+    }
+  }
+  
+  return null;
 };
 
 export default function FloraAdvisor() {
@@ -56,9 +115,13 @@ export default function FloraAdvisor() {
   const babyAge    = baby.birthDay > 0 ? Math.max(0, currentDay - baby.birthDay) : 0;
   const doneCount  = baby.milestones.length;
 
-  const SYSTEM_PROMPT = `You are Flora, a maternal health companion built into the Bloom app. You support mothers through pregnancy and the first two years of their baby's life. You are warm, direct, and clinically informed — not clinical in tone. You speak like a trusted friend who happens to know a lot about maternal health.
+  const floraContext = useMemo(() => buildFloraContextAddition(), []);
 
-Context about this mother:
+  const SYSTEM_PROMPT = `${FLORA_BASE_PROMPT}
+
+${floraContext}
+
+APP STATE CONTEXT:
 - Name: ${mama.name || "Mama"}
 - Day ${currentDay} of 1,000 (${STAGE_LABEL(currentDay)})
 - Weeks pregnant: ${mama.weeksPregnant || 0} (0 = postpartum)
@@ -69,7 +132,7 @@ Context about this mother:
 - Baby age: ${babyAge} days old
 - Milestones completed: ${doneCount}
 
-Rules:
+RULES:
 - Never diagnose. Triage toward care: "This is worth mentioning to your provider."
 - For BP ≥ 140/90 or preeclampsia signs (headache + swelling + vision changes): "Please contact your provider or go to the ER today."
 - For any suicidal ideation: immediately provide 988 and affirm help is available.
@@ -87,7 +150,7 @@ Rules:
 
     if (!AnthropicClient) {
       // Demo mode — static response
-      const response = STATIC_RESPONSES[text] ||
+      const response = findStaticResponse(text) ||
         `I hear you, ${mama.name || "Mama"}. That's worth paying attention to. Can you tell me a bit more about what's going on?`;
       let i = 0;
       const interval = setInterval(() => {
@@ -109,7 +172,7 @@ Rules:
         .map(m => ({ role: m.role === "flora" ? "assistant" : "user", content: m.text }));
 
       const stream = AnthropicClient.messages.stream({
-        model: "claude-sonnet-4-6",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 400,
         system: SYSTEM_PROMPT,
         messages: history,
@@ -129,6 +192,20 @@ Rules:
       console.error(err);
       setStreaming(false);
       setStreamText("");
+      // Fallback to demo mode on API failure
+      const response = findStaticResponse(text) ||
+        `I hear you, ${mama.name || "Mama"}. That's worth paying attention to. Can you tell me a bit more about what's going on?`;
+      let i = 0;
+      const interval = setInterval(() => {
+        setStreamText(response.slice(0, i));
+        i += 4;
+        if (i > response.length) {
+          clearInterval(interval);
+          setStreamText("");
+          setStreaming(false);
+          dispatch({ type: "ADD_FLORA_MESSAGE", message: { id: Date.now()+1, role: "flora", text: response, timestamp: new Date().toISOString() } });
+        }
+      }, 18);
     }
   };
 

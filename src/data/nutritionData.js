@@ -69,5 +69,13 @@ export const CULTURAL_FOODS = {
     { name: "Greek Yogurt",  emoji: "🥛", iron: 0.2, folate: 18,  calcium: 200, vitaminD: 40, omega3: 0, calories: 130, serving: "1 cup"},
     { name: "Almonds",       emoji: "🌰", iron: 1.0, folate: 14,  calcium: 76,  vitaminD: 0, omega3: 0, calories: 164, serving: "1oz"  },
     { name: "Lentils",       emoji: "🫘", iron: 6.6, folate: 358, calcium: 38,  vitaminD: 0, omega3: 0, calories: 230, serving: "1 cup" },
+    { name: "Banana",        emoji: "🍌", iron: 0.3, folate: 20,  calcium: 6,   vitaminD: 0, omega3: 0, calories: 105, serving: "1 med" },
+    { name: "Sweet Potato",  emoji: "🍠", iron: 1.2, folate: 14,  calcium: 40,  vitaminD: 0, omega3: 0, calories: 112, serving: "1 med" },
+    { name: "Avocado",       emoji: "🥑", iron: 0.6, folate: 81,  calcium: 12,  vitaminD: 0, omega3: 160, calories: 160, serving: "1/2 fruit" },
+    { name: "Chicken Breast",emoji: "🍗", iron: 0.9, folate: 5,   calcium: 11,  vitaminD: 1, omega3: 20, calories: 165, serving: "3oz" },
+    { name: "Quinoa",        emoji: "🍚", iron: 2.8, folate: 78,  calcium: 31,  vitaminD: 0, omega3: 0, calories: 222, serving: "1 cup" },
+    { name: "Blueberries",   emoji: "🫐", iron: 0.4, folate: 9,   calcium: 9,   vitaminD: 0, omega3: 0, calories: 84,  serving: "1 cup" },
+    { name: "Chickpeas",     emoji: "🥙", iron: 4.7, folate: 282, calcium: 80,  vitaminD: 0, omega3: 0, calories: 269, serving: "1 cup" },
+    { name: "Tofu",          emoji: "🍱", iron: 3.4, folate: 31,  calcium: 253, vitaminD: 0, omega3: 220, calories: 176, serving: "3oz" },
   ],
 };

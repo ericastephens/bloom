@@ -248,6 +248,9 @@ function reducer(state, action) {
         floraUnread: true,
       };
 
+    case "RESET_APP":
+      return initialState;
+
     default:
       return state;
   }

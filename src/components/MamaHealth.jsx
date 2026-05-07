@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Heart, Moon, Activity, Thermometer, ClipboardList } from "lucide-react";
+import { Heart, Moon, Activity, Thermometer, ClipboardList, Download, Mail, LogOut, Shield } from "lucide-react";
 import { useAppState, useAppDispatch } from "../hooks/useAppState";
 import PregnancyProfile from "./PregnancyProfile";
 
@@ -66,7 +66,8 @@ function Section({ icon: Icon, title, subtitle, color = "#1D9E75", bg = "white",
 }
 
 export default function MamaHealth() {
-  const { mama, baby, currentDay } = useAppState();
+  const state = useAppState();
+  const { mama, baby, currentDay } = state;
   const dispatch = useAppDispatch();
 
   const [bpSys, setBpSys]             = useState("");
@@ -174,9 +175,45 @@ export default function MamaHealth() {
     avgSleep  && parseFloat(avgSleep) >= 6,
   ].filter(Boolean).length;
 
-  return (
-    <div className="p-5">
+  const downloadHealthRecords = () => {
+    const data = { mama, baby, currentDay, floraMessages: state.floraMessages };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bloom-health-records-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
+  const emailHealthRecords = () => {
+    const data = { mama, baby, currentDay, floraMessages: state.floraMessages };
+    const subject = encodeURIComponent('Bloom Health Records');
+    const body = encodeURIComponent(`Attached are my health records from Bloom.\n\n${JSON.stringify(data, null, 2)}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
+
+  const signOut = () => {
+    if (window.confirm('Are you sure you want to sign out? This will reset all your data.')) {
+      dispatch({ type: 'RESET_APP' });
+      window.location.reload();
+    }
+  };
+
+  const resetOnboarding = () => {
+    if (window.confirm('Reset onboarding? This will take you back to the setup screen.')) {
+      import('../lib/profile').then(({ resetOnboarding: reset }) => {
+        reset();
+        window.location.reload();
+      });
+    }
+  };
+
+  return (
+    <div>
+      <div className="p-5">
       {/* Profile setup (if not done) */}
       {!mama.heightCm && <PregnancyProfile/>}
 
@@ -517,6 +554,59 @@ export default function MamaHealth() {
           </div>
         </div>
       )}
+    </div>
+
+    {/* ── Settings & Privacy ── */}
+    <div className="mt-8 mb-4">
+      <Section icon={Shield} title="Settings & Privacy" subtitle="Manage your data and account" color="#6B7280">
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <button onClick={downloadHealthRecords}
+              className="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
+              <Download size={16} />
+              Download Records
+            </button>
+            <button onClick={emailHealthRecords}
+              className="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
+              <Mail size={16} />
+              Email Records
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={resetOnboarding}
+              className="flex-1 bg-gray-100 text-gray-700 px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
+              Reset Onboarding
+            </button>
+            <button onClick={signOut}
+              className="flex-1 bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm font-medium hover:bg-red-200 transition-colors">
+              <LogOut size={16} /> Sign Out
+            </button>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-600 leading-relaxed">
+            <p className="font-semibold text-gray-800 mb-2">What data do we collect?</p>
+            <p>We collect health logs (mood, sleep, BP, symptoms), nutrition tracking, milestone progress, and chat messages with Flora. All data is stored locally on your device.</p>
+            <p className="font-semibold text-gray-800 mt-3 mb-2">Privacy & Security</p>
+            <p>Your personal information is never shared, sold, or transmitted to any external servers. Bloom is designed for privacy-first maternal care.</p>
+            <p className="font-semibold text-gray-800 mt-3 mb-2">Find Local Support</p>
+            <p>Need in-person help? Search for local professionals near you:</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <a href="https://www.google.com/maps/search/doula+near+me" target="_blank" rel="noopener noreferrer"
+                className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-blue-200 transition-colors">
+                Find Doula
+              </a>
+              <a href="https://www.google.com/maps/search/nutritionist+near+me" target="_blank" rel="noopener noreferrer"
+                className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-green-200 transition-colors">
+                Find Nutritionist
+              </a>
+              <a href="https://www.google.com/maps/search/maternity+clinic+near+me" target="_blank" rel="noopener noreferrer"
+                className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-purple-200 transition-colors">
+                Find Clinic
+              </a>
+            </div>
+          </div>
+        </div>
+      </Section>
+    </div>
     </div>
   );
 }

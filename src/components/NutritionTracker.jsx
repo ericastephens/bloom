@@ -122,7 +122,7 @@ export default function NutritionTracker() {
       if (!key) throw new Error("no key");
       const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true });
       const resp = await client.messages.create({
-        model: "claude-sonnet-4-6",
+        model: "claude-3-5-sonnet-20241022",
         max_tokens: 300,
         messages: [{ role: "user", content: [
           { type: "image", source: { type: "base64", media_type: file.type, data: base64 } },
